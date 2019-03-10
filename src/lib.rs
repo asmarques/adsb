@@ -64,10 +64,17 @@ named!(parse_aircraft_identification<&[u8], ADSBMessageKind>,
     )
 );
 
+named!(parse_icao_address<&[u8], ICAOAddress>,
+    map!(
+        bits!(tuple!(take_bits!(u8, 8), take_bits!(u8, 8), take_bits!(u8, 8))),
+        |(a, b, c)| ICAOAddress(a, b, c)
+    )
+);
+
 named!(parse_adsb_message<&[u8], MessageKind>,
     do_parse!(
         capability: map!(bits!(tuple!(tag_bits!(u8, 5, 0b10001), take_bits!(u8, 3))), |(_, ca)| ca) >>
-        icao_address: map!(bits!(tuple!(take_bits!(u8, 8), take_bits!(u8, 8), take_bits!(u8, 8))), |(a, b, c)| ICAOAddress(a, b, c)) >>
+        icao_address: parse_icao_address  >>
         type_code: peek!(bits!(take_bits!(u8, 5))) >>
         kind: parse_adsb_message_kind >>
         (MessageKind::ADSBMessage {
