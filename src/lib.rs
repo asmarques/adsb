@@ -2,6 +2,7 @@
 extern crate nom;
 
 use failure::{Error, Fail};
+use std::f64::consts::PI;
 
 const CHAR_LOOKUP: &'static [u8; 64] =
     b"#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######";
@@ -17,6 +18,12 @@ pub struct ICAOAddress(u8, u8, u8);
 pub enum CPRFrame {
     Odd,
     Even,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VerticalRateSource {
+    BarometricPressureAltitude,
+    GeometricAltitude,
 }
 
 #[derive(Debug)]
@@ -47,6 +54,12 @@ pub enum ADSBMessageKind {
         cpr_latitude: u32,
         cpr_longitude: u32,
     },
+    AirborneVelocity {
+        heading: f64,
+        ground_speed: f64,
+        vertical_rate: i16,
+        vertical_rate_source: VerticalRateSource,
+    },
 }
 
 fn decode_callsign(encoded: Vec<u8>) -> String {
@@ -59,7 +72,8 @@ fn decode_callsign(encoded: Vec<u8>) -> String {
 named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
     alt!(
         parse_aircraft_identification |
-        parse_airborne_position
+        parse_airborne_position |
+        parse_airborne_velocity
     )
 );
 
@@ -111,6 +125,50 @@ named!(parse_airborne_position<&[u8], ADSBMessageKind>,
                 cpr_frame,
                 cpr_latitude,
                 cpr_longitude
+            })
+        )
+    )
+);
+
+named!(parse_vertical_rate_source<(&[u8], usize), VerticalRateSource>,
+    alt!(
+        tag_bits!(u8, 1, 0b0) => {|_| VerticalRateSource::BarometricPressureAltitude } |
+        tag_bits!(u8, 1, 0b1) => {|_| VerticalRateSource::GeometricAltitude }
+    )
+);
+
+named!(parse_sign<(&[u8], usize), i16>,
+    alt!(
+        tag_bits!(u8, 1, 0b0) => {|_| 1 } |
+        tag_bits!(u8, 1, 0b1) => {|_| -1 }
+    )
+);
+
+named!(parse_airborne_velocity<&[u8], ADSBMessageKind>,
+    bits!(
+        do_parse!(
+            verify!(take_bits!(u8, 5), |tc| tc == 19) >>
+            verify!(take_bits!(u8, 3), |st| st == 1) >>
+            take_bits!(u8, 5) >>
+            ew_sign: parse_sign >>
+            ew_vel: take_bits!(u16, 10) >>
+            ns_sign: parse_sign >>
+            ns_vel: take_bits!(u16, 10) >>
+            vrate_src: parse_vertical_rate_source >>
+            vrate_sign: parse_sign >>
+            vrate: take_bits!(u16, 9) >>
+            take_bits!(u16, 10) >>
+            ({
+                let v_ew = ((ew_vel as i16 - 1) * ew_sign) as f64;
+                let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
+                let h = v_ew.atan2(v_ns) * (360.0 / (2.0 * PI));
+                let heading = if h < 0.0 { h + 360.0 } else { h };
+                ADSBMessageKind::AirborneVelocity {
+                    heading,
+                    ground_speed: (v_ew.powi(2) + v_ns.powi(2)).sqrt(),
+                    vertical_rate: (((vrate - 1) * 64) as i16) * vrate_sign,
+                    vertical_rate_source: vrate_src,
+                }
             })
         )
     )
@@ -224,6 +282,27 @@ mod tests {
                     cpr_frame: CPRFrame::Odd,
                     cpr_latitude: 74158,
                     cpr_longitude: 50194,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn parse_airborne_velocity_ground_speed() {
+        let r = b"\x8D\x48\x50\x20\x99\x44\x09\x94\x08\x38\x17\x5B\x28\x4F";
+        let m = parse_message(r).unwrap();
+        assert_eq!(m.downlink_format, 17);
+        assert_eq!(
+            m.kind,
+            MessageKind::ADSBMessage {
+                capability: CAPABILITY,
+                icao_address: ICAOAddress(0x48, 0x50, 0x20),
+                type_code: 19,
+                kind: ADSBMessageKind::AirborneVelocity {
+                    heading: 182.8803775528476,
+                    ground_speed: 159.20113064925135,
+                    vertical_rate: -832,
+                    vertical_rate_source: VerticalRateSource::BarometricPressureAltitude,
                 }
             }
         );
