@@ -1,11 +1,26 @@
 use failure::Fail;
+use std::convert::From;
+use std::fmt;
 
 #[derive(Fail, Debug)]
 #[fail(display = "Error parsing message")]
 pub struct ParserError();
 
-#[derive(Debug, PartialEq)]
+impl<T> From<nom::Err<T>> for ParserError {
+    fn from(_error: nom::Err<T>) -> Self {
+        // TODO: add error context
+        ParserError()
+    }
+}
+
+#[derive(PartialEq)]
 pub struct ICAOAddress(pub(crate) u8, pub(crate) u8, pub(crate) u8);
+
+impl fmt::Debug for ICAOAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:X}{:X}{:X}", self.0, self.1, self.2)
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum CPRFrame {

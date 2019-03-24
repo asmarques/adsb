@@ -1,6 +1,6 @@
 use super::types::*;
-use failure::Error;
 use std::f64::consts::PI;
+use std::iter::Iterator;
 
 const CHAR_LOOKUP: &'static [u8; 64] =
     b"#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######";
@@ -145,7 +145,7 @@ named!(parse_message_kind<&[u8], MessageKind>,
     )
 );
 
-named!(parse_one<&[u8], Message>,
+named!(parse_message<&[u8], Message>,
     do_parse!(
         downlink_format: peek!(bits!(take_bits!(u8, 5))) >>
         kind: parse_message_kind >>
@@ -158,10 +158,28 @@ named!(parse_one<&[u8], Message>,
     )
 );
 
-pub fn parse_message(message: &[u8]) -> Result<Message, Error> {
-    parse_one(message)
-        .map(|(_, message)| message)
-        .map_err(|_| ParserError().into())
+named!(parse_hex_string<&str, Vec<u8>>,
+    many0!(map_res!(take_while_m_n!(2, 2, |d: char| d.is_digit(16)), |d| u8::from_str_radix(d, 16)))
+);
+
+named!(parse_avr_frame<&str, Vec<u8>>,
+    do_parse!(
+        tag!("*") >>
+        bytes: parse_hex_string >>
+        tag!(";") >>
+        (bytes)
+    )
+);
+
+pub fn parse_binary(data: &[u8]) -> Result<(Message, &[u8]), ParserError> {
+    let (remaining, message) = parse_message(data)?;
+    Ok((message, remaining))
+}
+
+pub fn parse_avr(data: &str) -> Result<(Message, &str), ParserError> {
+    let (remaining, frame) = parse_avr_frame(data)?;
+    let (_, message) = parse_message(&frame)?;
+    Ok((message, remaining))
 }
 
 #[cfg(test)]
@@ -172,7 +190,7 @@ mod tests {
     #[test]
     fn parse_aircraft_identification_message() {
         let r = b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98";
-        let m = parse_message(r).unwrap();
+        let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
         assert_eq!(
             m.kind,
@@ -191,7 +209,7 @@ mod tests {
     #[test]
     fn parse_airborne_position_even_message() {
         let r = b"\x8D\x40\x62\x1D\x58\xC3\x82\xD6\x90\xC8\xAC\x28\x63\xA7";
-        let m = parse_message(r).unwrap();
+        let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
         assert_eq!(
             m.kind,
@@ -212,7 +230,7 @@ mod tests {
     #[test]
     fn parse_airborne_position_odd_message() {
         let r = b"\x8D\x40\x62\x1D\x58\xC3\x86\x43\x5C\xC4\x12\x69\x2A\xD6";
-        let m = parse_message(r).unwrap();
+        let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
         assert_eq!(
             m.kind,
@@ -233,7 +251,7 @@ mod tests {
     #[test]
     fn parse_airborne_velocity_ground_speed() {
         let r = b"\x8D\x48\x50\x20\x99\x44\x09\x94\x08\x38\x17\x5B\x28\x4F";
-        let m = parse_message(r).unwrap();
+        let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
         assert_eq!(
             m.kind,
@@ -254,6 +272,16 @@ mod tests {
     #[test]
     fn parse_invalid_message() {
         let r = b"\x00";
-        assert!(parse_message(r).is_err());
+        assert!(parse_binary(r).is_err());
+    }
+
+    #[test]
+    fn parse_single_avr_frame() {
+        let r = "*8D4840D6202CC371C32CE0576098;";
+        let (_, m) = parse_avr_frame(&r).unwrap();
+        assert_eq!(
+            m,
+            b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98"
+        );
     }
 }
