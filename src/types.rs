@@ -48,6 +48,7 @@ pub enum MessageKind {
         type_code: u8,
         kind: ADSBMessageKind,
     },
+    Unknown,
 }
 
 #[derive(Debug, PartialEq)]

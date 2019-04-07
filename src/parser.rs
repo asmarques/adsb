@@ -141,7 +141,8 @@ named!(parse_adsb_message<&[u8], MessageKind>,
 
 named!(parse_message_kind<&[u8], MessageKind>,
     alt!(
-        parse_adsb_message
+        parse_adsb_message |
+        value!(MessageKind::Unknown)
     )
 );
 
