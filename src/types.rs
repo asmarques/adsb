@@ -13,7 +13,7 @@ impl<T> From<nom::Err<T>> for ParserError {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ICAOAddress(pub(crate) u8, pub(crate) u8, pub(crate) u8);
 
 impl fmt::Debug for ICAOAddress {
@@ -22,13 +22,25 @@ impl fmt::Debug for ICAOAddress {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum CPRFrame {
-    Odd,
-    Even,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Position {
+    pub latitude: f64,
+    pub longitude: f64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct CPRFrame {
+    pub position: Position,
+    pub parity: Parity,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Parity {
+    Even,
+    Odd,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum VerticalRateSource {
     BarometricPressureAltitude,
     GeometricAltitude,
@@ -60,8 +72,6 @@ pub enum ADSBMessageKind {
     AirbornePosition {
         altitude: u16,
         cpr_frame: CPRFrame,
-        cpr_latitude: u32,
-        cpr_longitude: u32,
     },
     AirborneVelocity {
         heading: f64,

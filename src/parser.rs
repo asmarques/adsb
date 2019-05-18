@@ -46,10 +46,10 @@ named!(parse_altitude<(&[u8], usize), u16>,
     )
 );
 
-named!(parse_cpr_frame<(&[u8], usize), CPRFrame>,
+named!(parse_cpr_parity<(&[u8], usize), Parity>,
     alt!(
-        tag_bits!(u8, 1, 0b0) => {|_| CPRFrame::Even } |
-        tag_bits!(u8, 1, 0b1) => {|_| CPRFrame::Odd }
+        tag_bits!(u8, 1, 0b0) => {|_| Parity::Even } |
+        tag_bits!(u8, 1, 0b1) => {|_| Parity::Odd }
     )
 );
 
@@ -60,14 +60,18 @@ named!(parse_airborne_position<&[u8], ADSBMessageKind>,
             take_bits!(u8, 3) >>
             altitude: parse_altitude >>
             take_bits!(u8, 1) >>
-            cpr_frame: parse_cpr_frame  >>
+            cpr_parity: parse_cpr_parity >>
             cpr_latitude: take_bits!(u32, 17) >>
             cpr_longitude: take_bits!(u32, 17) >>
             (ADSBMessageKind::AirbornePosition {
                 altitude,
-                cpr_frame,
-                cpr_latitude,
-                cpr_longitude
+                cpr_frame: CPRFrame {
+                    parity: cpr_parity,
+                    position: Position {
+                        latitude: cpr_latitude.into(),
+                        longitude: cpr_longitude.into(),
+                    }
+                },
             })
         )
     )
@@ -220,9 +224,13 @@ mod tests {
                 type_code: 11,
                 kind: ADSBMessageKind::AirbornePosition {
                     altitude: 38000,
-                    cpr_frame: CPRFrame::Even,
-                    cpr_latitude: 93000,
-                    cpr_longitude: 51372,
+                    cpr_frame: CPRFrame {
+                        parity: Parity::Even,
+                        position: Position {
+                            latitude: 93000.0,
+                            longitude: 51372.0,
+                        }
+                    },
                 }
             }
         );
@@ -241,9 +249,13 @@ mod tests {
                 type_code: 11,
                 kind: ADSBMessageKind::AirbornePosition {
                     altitude: 38000,
-                    cpr_frame: CPRFrame::Odd,
-                    cpr_latitude: 74158,
-                    cpr_longitude: 50194,
+                    cpr_frame: CPRFrame {
+                        parity: Parity::Odd,
+                        position: Position {
+                            latitude: 74158.0,
+                            longitude: 50194.0,
+                        }
+                    },
                 }
             }
         );
