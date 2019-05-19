@@ -1,16 +1,29 @@
-use failure::Fail;
 use std::convert::From;
+use std::error::Error;
 use std::fmt;
 
 /// Error type used to convey parsing errors.
-#[derive(Fail, Debug)]
-#[fail(display = "Error parsing message")]
-pub struct ParserError();
+#[derive(Debug)]
+pub struct ParserError(String);
 
-impl<T> From<nom::Err<T>> for ParserError {
-    fn from(_error: nom::Err<T>) -> Self {
-        // TODO: add error context
-        ParserError()
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for ParserError {
+    fn description(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<T> From<nom::Err<T>> for ParserError
+where
+    nom::Err<T>: Error,
+{
+    fn from(error: nom::Err<T>) -> Self {
+        ParserError(error.description().to_string())
     }
 }
 
