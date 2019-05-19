@@ -2,8 +2,7 @@ use super::types::*;
 use std::f64::consts::PI;
 use std::iter::Iterator;
 
-const CHAR_LOOKUP: &'static [u8; 64] =
-    b"#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######";
+const CHAR_LOOKUP: &[u8; 64] = b"#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######";
 
 fn decode_callsign(encoded: Vec<u8>) -> String {
     encoded
