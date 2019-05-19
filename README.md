@@ -1,5 +1,7 @@
 # adsb
 
+[![Build Status](https://travis-ci.org/asmarques/adsb.svg)](https://travis-ci.org/asmarques/adsb)
+
 A Rust parser for ADS-B/Mode-S messages.
 
 Messages with the following Downlink Formats (DF) are supported:
