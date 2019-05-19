@@ -176,11 +176,15 @@ named!(parse_avr_frame<&str, Vec<u8>>,
     )
 );
 
+/// Parse message from binary data. If successful, returns a tuple containing the parsed message and a slice
+/// of remaining unparsed binary data.
 pub fn parse_binary(data: &[u8]) -> Result<(Message, &[u8]), ParserError> {
     let (remaining, message) = parse_message(data)?;
     Ok((message, remaining))
 }
 
+/// Parse message from a string with data in AVR format. Each message should start with a `*` and end with a `;`.
+/// If successful, returns a tuple containing the parsed message and a slice of remaining unparsed data.
 pub fn parse_avr(data: &str) -> Result<(Message, &str), ParserError> {
     let (remaining, frame) = parse_avr_frame(data)?;
     let (_, message) = parse_message(&frame)?;

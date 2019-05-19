@@ -1,3 +1,5 @@
+//! Decode aircraft positions encoded in Compact Position Reporting (CPR) format.
+
 use crate::types::{CPRFrame, Parity, Position};
 use std::cmp;
 use std::f64::consts::PI;
@@ -13,6 +15,10 @@ fn cpr_nl(lat: f64) -> u64 {
     ((2.0 * PI) / (1.0 - (x / y)).acos()).floor() as u64
 }
 
+/// Calculates a globally unambiguous position based on a pair of frames containing position information
+/// encoded in CPR format. A position is returned when passed a tuple containing two frames of opposite parity
+/// (even and odd). The frames in the tuple should be ordered according to when they were received: the first
+/// frame being the oldest frame and the second frame being the latest.
 pub fn get_position(cpr_frames: (&CPRFrame, &CPRFrame)) -> Option<Position> {
     let latest_frame = cpr_frames.1;
     let (even_frame, odd_frame) = match cpr_frames {
