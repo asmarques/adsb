@@ -1,11 +1,11 @@
 use super::types::*;
+use nom::branch::alt;
+use nom::combinator::{map, verify};
+use nom::multi::many_m_n;
 use nom::sequence::tuple;
-use nom::{
-    bits::complete::tag as tag_bits, bits::complete::take as take_bits, branch::alt,
-    combinator::map, IResult,
-};
+use nom::IResult;
+use nom::{bits::complete::tag as tag_bits, bits::complete::take as take_bits};
 use std::f64::consts::PI;
-use std::iter::Iterator;
 
 const CHAR_LOOKUP: &[u8; 64] = b"#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######";
 
@@ -18,27 +18,26 @@ fn decode_callsign(encoded: Vec<u8>) -> String {
 
 named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
     alt!(
-        parse_aircraft_identification |
+        bits!(parse_aircraft_identification) |
         parse_airborne_position |
         parse_airborne_velocity
     )
 );
 
-named!(match_tc_aircraft_identification<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 1 && *tc <= 4));
-
-named!(parse_aircraft_identification<&[u8], ADSBMessageKind>,
-    bits!(
-        do_parse!(
-            match_tc_aircraft_identification >>
-            emitter_category: take_bits!(3u8) >>
-            callsign: map!(many_m_n!(8, 8, take_bits!(6u8)), decode_callsign) >>
-            (ADSBMessageKind::AircraftIdentification {
-                emitter_category,
-                callsign,
-            })
-        )
-    )
-);
+fn parse_aircraft_identification(
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), ADSBMessageKind> {
+    let (input, (_, emitter_category, callsign)): (_, (u8, u8, String)) = tuple((
+        verify(take_bits(5u8), |tc| *tc >= 1 && *tc <= 4),
+        take_bits(3u8),
+        map(many_m_n(8, 8, take_bits(6u8)), decode_callsign),
+    ))(input)?;
+    let message = ADSBMessageKind::AircraftIdentification {
+        emitter_category,
+        callsign,
+    };
+    Ok((input, message))
+}
 
 fn parse_altitude(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
     let (input, (l, q, r)): (_, (u16, u16, u16)) = tuple((
