@@ -1,4 +1,5 @@
 use super::types::*;
+use nom::{bits::complete::tag as tag_bits, branch::alt, combinator::map, IResult};
 use std::f64::consts::PI;
 use std::iter::Iterator;
 
@@ -53,12 +54,12 @@ named!(parse_altitude<(&[u8], usize), u16>,
     )
 );
 
-named!(parse_cpr_parity<(&[u8], usize), Parity>,
-    alt!(
-        tag_bits!(1u8, 0b0) => {|_| Parity::Even } |
-        tag_bits!(1u8, 0b1) => {|_| Parity::Odd }
-    )
-);
+fn parse_cpr_parity(input: (&[u8], usize)) -> IResult<(&[u8], usize), Parity> {
+    alt((
+        map(tag_bits(0b0, 1u8), |_| Parity::Even),
+        map(tag_bits(0b1, 1u8), |_| Parity::Odd),
+    ))(input)
+}
 
 named!(match_tc_airborne_position<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 9 && *tc <= 18));
 named!(take_1_bit<(&[u8], usize), u8>, take_bits!(1u8));
