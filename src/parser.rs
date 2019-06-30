@@ -98,12 +98,12 @@ fn parse_vertical_rate_source(
     ))(input)
 }
 
-named!(parse_sign<(&[u8], usize), i16>,
-    alt!(
-        tag_bits!(1u8, 0b0) => {|_| 1 } |
-        tag_bits!(1u8, 0b1) => {|_| -1 }
-    )
-);
+fn parse_sign(input: (&[u8], usize)) -> IResult<(&[u8], usize), i16> {
+    alt((
+        map(tag_bits(0b0, 1u8), |_| 1),
+        map(tag_bits(0b1, 1u8), |_| -1),
+    ))(input)
+}
 
 named!(match_tc_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc == 19));
 named!(match_st_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(3u8), |st| *st == 1));
