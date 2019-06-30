@@ -1,5 +1,9 @@
 use super::types::*;
-use nom::{bits::complete::tag as tag_bits, branch::alt, combinator::map, IResult};
+use nom::sequence::tuple;
+use nom::{
+    bits::complete::tag as tag_bits, bits::complete::take as take_bits, branch::alt,
+    combinator::map, IResult,
+};
 use std::f64::consts::PI;
 use std::iter::Iterator;
 
@@ -36,23 +40,18 @@ named!(parse_aircraft_identification<&[u8], ADSBMessageKind>,
     )
 );
 
-named!(parse_l<(&[u8], usize), u16>, take_bits!(7u16));
-named!(parse_q<(&[u8], usize), u16>,
-    alt!(
-        tag_bits!(1u8, 0b0) => {|_| 100 } |
-        tag_bits!(1u8, 0b1) => {|_| 25 }
-    )
-);
-named!(parse_r<(&[u8], usize), u16>, take_bits!(4u16));
-
-named!(parse_altitude<(&[u8], usize), u16>,
-    do_parse!(
-        l: parse_l >>
-        q: parse_q >>
-        r: parse_r >>
-        ((l.rotate_left(4) + r) * q - 1000)
-    )
-);
+fn parse_altitude(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    let (input, (l, q, r)): (_, (u16, u16, u16)) = tuple((
+        take_bits(7u8),
+        alt((
+            map(tag_bits(0b0, 1u8), |_| 100),
+            map(tag_bits(0b1, 1u8), |_| 25),
+        )),
+        take_bits(4u8),
+    ))(input)?;
+    let altitude = (l.rotate_left(4) + r) * q - 1000;
+    Ok((input, altitude))
+}
 
 fn parse_cpr_parity(input: (&[u8], usize)) -> IResult<(&[u8], usize), Parity> {
     alt((
