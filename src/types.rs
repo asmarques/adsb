@@ -20,10 +20,10 @@ impl Error for ParserError {
 
 impl<T> From<nom::Err<T>> for ParserError
 where
-    nom::Err<T>: Error,
+    nom::Err<T>: std::fmt::Debug,
 {
     fn from(error: nom::Err<T>) -> Self {
-        ParserError(error.description().to_string())
+        ParserError(format!("{:?}", error))
     }
 }
 

@@ -19,12 +19,14 @@ named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
     )
 );
 
+named!(match_tc_aircraft_identification<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 1 && *tc <= 4));
+
 named!(parse_aircraft_identification<&[u8], ADSBMessageKind>,
     bits!(
         do_parse!(
-            verify!(take_bits!(u8, 5), |tc| tc >= 1 && tc <= 4) >>
-            emitter_category: take_bits!(u8, 3) >>
-            callsign: map!(many_m_n!(8, 8, take_bits!(u8, 6)), decode_callsign) >>
+            match_tc_aircraft_identification >>
+            emitter_category: take_bits!(3u8) >>
+            callsign: map!(many_m_n!(8, 8, take_bits!(6u8)), decode_callsign) >>
             (ADSBMessageKind::AircraftIdentification {
                 emitter_category,
                 callsign,
@@ -33,35 +35,46 @@ named!(parse_aircraft_identification<&[u8], ADSBMessageKind>,
     )
 );
 
+named!(parse_l<(&[u8], usize), u16>, take_bits!(7u16));
+named!(parse_q<(&[u8], usize), u16>,
+    alt!(
+        tag_bits!(1u8, 0b0) => {|_| 100 } |
+        tag_bits!(1u8, 0b1) => {|_| 25 }
+    )
+);
+named!(parse_r<(&[u8], usize), u16>, take_bits!(4u16));
+
 named!(parse_altitude<(&[u8], usize), u16>,
     do_parse!(
-        l: take_bits!(u16, 7) >>
-        q: alt!(
-            tag_bits!(u8, 1, 0b0) => {|_| 100 } |
-            tag_bits!(u8, 1, 0b1) => {|_| 25 }
-        ) >>
-        r: take_bits!(u16, 4) >>
+        l: parse_l >>
+        q: parse_q >>
+        r: parse_r >>
         ((l.rotate_left(4) + r) * q - 1000)
     )
 );
 
 named!(parse_cpr_parity<(&[u8], usize), Parity>,
     alt!(
-        tag_bits!(u8, 1, 0b0) => {|_| Parity::Even } |
-        tag_bits!(u8, 1, 0b1) => {|_| Parity::Odd }
+        tag_bits!(1u8, 0b0) => {|_| Parity::Even } |
+        tag_bits!(1u8, 0b1) => {|_| Parity::Odd }
     )
 );
+
+named!(match_tc_airborne_position<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 9 && *tc <= 18));
+named!(take_1_bit<(&[u8], usize), u8>, take_bits!(1u8));
+named!(take_3_bits<(&[u8], usize), u8>, take_bits!(3u8));
+named!(parse_coordinate<(&[u8], usize), u32>, take_bits!(17u32));
 
 named!(parse_airborne_position<&[u8], ADSBMessageKind>,
     bits!(
         do_parse!(
-            verify!(take_bits!(u8, 5), |tc| tc >= 9 && tc <= 18) >>
-            take_bits!(u8, 3) >>
+            match_tc_airborne_position >>
+            take_3_bits >>
             altitude: parse_altitude >>
-            take_bits!(u8, 1) >>
+            take_1_bit >>
             cpr_parity: parse_cpr_parity >>
-            cpr_latitude: take_bits!(u32, 17) >>
-            cpr_longitude: take_bits!(u32, 17) >>
+            cpr_latitude: parse_coordinate >>
+            cpr_longitude: parse_coordinate >>
             (ADSBMessageKind::AirbornePosition {
                 altitude,
                 cpr_frame: CPRFrame {
@@ -78,32 +91,39 @@ named!(parse_airborne_position<&[u8], ADSBMessageKind>,
 
 named!(parse_vertical_rate_source<(&[u8], usize), VerticalRateSource>,
     alt!(
-        tag_bits!(u8, 1, 0b0) => {|_| VerticalRateSource::BarometricPressureAltitude } |
-        tag_bits!(u8, 1, 0b1) => {|_| VerticalRateSource::GeometricAltitude }
+        tag_bits!(1u8, 0b0) => {|_| VerticalRateSource::BarometricPressureAltitude } |
+        tag_bits!(1u8, 0b1) => {|_| VerticalRateSource::GeometricAltitude }
     )
 );
 
 named!(parse_sign<(&[u8], usize), i16>,
     alt!(
-        tag_bits!(u8, 1, 0b0) => {|_| 1 } |
-        tag_bits!(u8, 1, 0b1) => {|_| -1 }
+        tag_bits!(1u8, 0b0) => {|_| 1 } |
+        tag_bits!(1u8, 0b1) => {|_| -1 }
     )
 );
+
+named!(match_tc_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc == 19));
+named!(match_st_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(3u8), |st| *st == 1));
+named!(parse_velocity<(&[u8], usize), u16>, take_bits!(10u16));
+named!(parse_vertical_rate<(&[u8], usize), u16>, take_bits!(9u16));
+named!(take_5_bits<(&[u8], usize), u8>, take_bits!(5u8));
+named!(take_10_bits<(&[u8], usize), u16>, take_bits!(10u16));
 
 named!(parse_airborne_velocity<&[u8], ADSBMessageKind>,
     bits!(
         do_parse!(
-            verify!(take_bits!(u8, 5), |tc| tc == 19) >>
-            verify!(take_bits!(u8, 3), |st| st == 1) >>
-            take_bits!(u8, 5) >>
+            match_tc_airborne_velocity >>
+            match_st_airborne_velocity >>
+            take_5_bits >>
             ew_sign: parse_sign >>
-            ew_vel: take_bits!(u16, 10) >>
+            ew_vel: parse_velocity >>
             ns_sign: parse_sign >>
-            ns_vel: take_bits!(u16, 10) >>
+            ns_vel: parse_velocity >>
             vrate_src: parse_vertical_rate_source >>
             vrate_sign: parse_sign >>
-            vrate: take_bits!(u16, 9) >>
-            take_bits!(u16, 10) >>
+            vrate: parse_vertical_rate >>
+            take_10_bits >>
             ({
                 let v_ew = ((ew_vel as i16 - 1) * ew_sign) as f64;
                 let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
@@ -122,16 +142,16 @@ named!(parse_airborne_velocity<&[u8], ADSBMessageKind>,
 
 named!(parse_icao_address<&[u8], ICAOAddress>,
     map!(
-        bits!(tuple!(take_bits!(u8, 8), take_bits!(u8, 8), take_bits!(u8, 8))),
+        bits!(tuple!(take_bits!(8u8), take_bits!(8u8), take_bits!(8u8))),
         |(a, b, c)| ICAOAddress(a, b, c)
     )
 );
 
 named!(parse_adsb_message<&[u8], MessageKind>,
     do_parse!(
-        capability: map!(bits!(tuple!(tag_bits!(u8, 5, 0b10001), take_bits!(u8, 3))), |(_, ca)| ca) >>
+        capability: map!(bits!(tuple!(tag_bits!(5u8, 0b10001), take_bits!(3u8))), |(_, ca)| ca) >>
         icao_address: parse_icao_address  >>
-        type_code: peek!(bits!(take_bits!(u8, 5))) >>
+        type_code: peek!(bits!(take_bits!(5u8))) >>
         kind: parse_adsb_message_kind >>
         (MessageKind::ADSBMessage {
             capability,
@@ -151,16 +171,18 @@ named!(parse_message_kind<&[u8], MessageKind>,
 
 named!(parse_message<&[u8], Message>,
     do_parse!(
-        downlink_format: peek!(bits!(take_bits!(u8, 5))) >>
+        downlink_format: peek!(bits!(take_bits!(5u8))) >>
         kind: parse_message_kind >>
         // TODO: check CRC
-        bits!(take_bits!(u32, 24)) >>
+        parse_crc >>
         (Message {
             downlink_format,
             kind,
         })
     )
 );
+
+named!(parse_crc<&[u8], u32>, bits!(take_bits!(24u32)));
 
 named!(parse_hex_string<&str, Vec<u8>>,
     many0!(map_res!(take_while_m_n!(2, 2, |d: char| d.is_digit(16)), |d| u8::from_str_radix(d, 16)))

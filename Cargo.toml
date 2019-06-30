@@ -9,7 +9,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-nom = "4.2.2"
+nom = "5"
 
 [dev-dependencies]
 structopt = "0.2.10"
