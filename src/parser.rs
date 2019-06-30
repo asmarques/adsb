@@ -88,12 +88,15 @@ named!(parse_airborne_position<&[u8], ADSBMessageKind>,
     )
 );
 
-named!(parse_vertical_rate_source<(&[u8], usize), VerticalRateSource>,
-    alt!(
-        tag_bits!(1u8, 0b0) => {|_| VerticalRateSource::BarometricPressureAltitude } |
-        tag_bits!(1u8, 0b1) => {|_| VerticalRateSource::GeometricAltitude }
-    )
-);
+fn parse_vertical_rate_source(
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), VerticalRateSource> {
+    use VerticalRateSource::*;
+    alt((
+        map(tag_bits(0b0, 1u8), |_| BarometricPressureAltitude),
+        map(tag_bits(0b1, 1u8), |_| GeometricAltitude),
+    ))(input)
+}
 
 named!(parse_sign<(&[u8], usize), i16>,
     alt!(
