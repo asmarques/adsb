@@ -1,6 +1,6 @@
 use super::types::*;
 use nom::branch::alt;
-use nom::combinator::{map, verify};
+use nom::combinator::{map, peek, verify};
 use nom::multi::many_m_n;
 use nom::sequence::tuple;
 use nom::IResult;
@@ -15,14 +15,6 @@ fn decode_callsign(encoded: Vec<u8>) -> String {
         .map(|b| CHAR_LOOKUP[b as usize] as char)
         .collect::<String>()
 }
-
-named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
-    alt!(
-        bits!(parse_aircraft_identification) |
-        bits!(parse_airborne_position) |
-        bits!(parse_airborne_velocity)
-    )
-);
 
 fn parse_aircraft_identification(
     input: (&[u8], usize),
@@ -149,24 +141,37 @@ fn parse_icao_address(input: (&[u8], usize)) -> IResult<(&[u8], usize), ICAOAddr
     Ok((input, address))
 }
 
-named!(parse_adsb_message<&[u8], MessageKind>,
-    do_parse!(
-        capability: map!(bits!(tuple!(tag_bits!(5u8, 0b10001), take_bits!(3u8))), |(_, ca)| ca) >>
-        icao_address: bits!(parse_icao_address)  >>
-        type_code: peek!(bits!(take_bits!(5u8))) >>
-        kind: parse_adsb_message_kind >>
-        (MessageKind::ADSBMessage {
-            capability,
-            icao_address,
-            type_code,
-            kind,
-        })
-    )
-);
+fn parse_adsb_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADSBMessageKind> {
+    alt((
+        parse_aircraft_identification,
+        parse_airborne_position,
+        parse_airborne_velocity,
+    ))(input)
+}
+
+fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
+    let (input, (_, capability)): (_, (u8, u8)) =
+        tuple((tag_bits(0b10001, 5u8), take_bits(3u8)))(input)?;
+
+    let (input, (icao_address, type_code, kind)) = tuple((
+        parse_icao_address,
+        peek(take_bits(5u8)),
+        parse_adsb_message_kind,
+    ))(input)?;
+
+    let message = MessageKind::ADSBMessage {
+        capability,
+        icao_address,
+        type_code,
+        kind,
+    };
+
+    Ok((input, message))
+}
 
 named!(parse_message_kind<&[u8], MessageKind>,
     alt!(
-        parse_adsb_message |
+        bits!(parse_adsb_message) |
         value!(MessageKind::Unknown)
     )
 );
