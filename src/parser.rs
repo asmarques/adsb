@@ -59,10 +59,14 @@ fn parse_cpr_parity(input: (&[u8], usize)) -> IResult<(&[u8], usize), Parity> {
     ))(input)
 }
 
+fn parse_coordinate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u32> {
+    take_bits(17u32)(input)
+}
+
 named!(match_tc_airborne_position<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 9 && *tc <= 18));
 named!(take_1_bit<(&[u8], usize), u8>, take_bits!(1u8));
 named!(take_3_bits<(&[u8], usize), u8>, take_bits!(3u8));
-named!(parse_coordinate<(&[u8], usize), u32>, take_bits!(17u32));
+// named!(parse_coordinate<(&[u8], usize), u32>, take_bits!(17u32));
 
 named!(parse_airborne_position<&[u8], ADSBMessageKind>,
     bits!(
