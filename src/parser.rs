@@ -19,7 +19,7 @@ fn decode_callsign(encoded: Vec<u8>) -> String {
 named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
     alt!(
         bits!(parse_aircraft_identification) |
-        parse_airborne_position |
+        bits!(parse_airborne_position) |
         parse_airborne_velocity
     )
 );
@@ -63,34 +63,29 @@ fn parse_coordinate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u32> {
     take_bits(17u32)(input)
 }
 
-named!(match_tc_airborne_position<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc >= 9 && *tc <= 18));
-named!(take_1_bit<(&[u8], usize), u8>, take_bits!(1u8));
-named!(take_3_bits<(&[u8], usize), u8>, take_bits!(3u8));
-// named!(parse_coordinate<(&[u8], usize), u32>, take_bits!(17u32));
+fn parse_airborne_position(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADSBMessageKind> {
+    let (input, _): (_, (u8, u8)) = tuple((
+        verify(take_bits(5u8), |tc| *tc >= 9 && *tc <= 18),
+        take_bits(3u8),
+    ))(input)?;
 
-named!(parse_airborne_position<&[u8], ADSBMessageKind>,
-    bits!(
-        do_parse!(
-            match_tc_airborne_position >>
-            take_3_bits >>
-            altitude: parse_altitude >>
-            take_1_bit >>
-            cpr_parity: parse_cpr_parity >>
-            cpr_latitude: parse_coordinate >>
-            cpr_longitude: parse_coordinate >>
-            (ADSBMessageKind::AirbornePosition {
-                altitude,
-                cpr_frame: CPRFrame {
-                    parity: cpr_parity,
-                    position: Position {
-                        latitude: cpr_latitude.into(),
-                        longitude: cpr_longitude.into(),
-                    }
-                },
-            })
-        )
-    )
-);
+    let (input, (altitude, _)): (_, (u16, u8)) = tuple((parse_altitude, take_bits(1u8)))(input)?;
+    let (input, cpr_parity) = parse_cpr_parity(input)?;
+    let (input, (cpr_latitude, cpr_longitude)) =
+        tuple((parse_coordinate, parse_coordinate))(input)?;
+
+    let message = ADSBMessageKind::AirbornePosition {
+        altitude,
+        cpr_frame: CPRFrame {
+            parity: cpr_parity,
+            position: Position {
+                latitude: cpr_latitude.into(),
+                longitude: cpr_longitude.into(),
+            },
+        },
+    };
+    Ok((input, message))
+}
 
 fn parse_vertical_rate_source(
     input: (&[u8], usize),
