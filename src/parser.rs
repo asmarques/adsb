@@ -1,4 +1,5 @@
 use super::types::*;
+use nom::bits::bits;
 use nom::branch::alt;
 use nom::combinator::{map, peek, verify};
 use nom::multi::many_m_n;
@@ -169,27 +170,24 @@ fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageK
     Ok((input, message))
 }
 
-named!(parse_message_kind<&[u8], MessageKind>,
-    alt!(
-        bits!(parse_adsb_message) |
-        value!(MessageKind::Unknown)
-    )
-);
+fn parse_unknown(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
+    Ok((input, MessageKind::Unknown))
+}
 
-named!(parse_message<&[u8], Message>,
-    do_parse!(
-        downlink_format: peek!(bits!(take_bits!(5u8))) >>
-        kind: parse_message_kind >>
+fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
+    let (input, (downlink_format, kind, _)): (_, (u8, MessageKind, u32)) = bits(tuple((
+        peek(take_bits(5u8)),
+        alt((parse_adsb_message, parse_unknown)),
         // TODO: check CRC
-        parse_crc >>
-        (Message {
-            downlink_format,
-            kind,
-        })
-    )
-);
+        take_bits(24u32),
+    )))(input)?;
 
-named!(parse_crc<&[u8], u32>, bits!(take_bits!(24u32)));
+    let message = Message {
+        downlink_format,
+        kind,
+    };
+    return Ok((input, message));
+}
 
 named!(parse_hex_string<&str, Vec<u8>>,
     many0!(map_res!(take_while_m_n!(2, 2, |d: char| d.is_digit(16)), |d| u8::from_str_radix(d, 16)))

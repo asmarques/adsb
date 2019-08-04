@@ -80,7 +80,7 @@ pub struct Message {
 }
 
 /// Kind of ADS-B/Mode-S message.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum MessageKind {
     /// ADSB message (DF 17)
     ADSBMessage {
@@ -94,7 +94,7 @@ pub enum MessageKind {
 }
 
 /// Kind of ADSB message.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ADSBMessageKind {
     /// Aicraft identification and category message (TC 1-4)
     AircraftIdentification {
