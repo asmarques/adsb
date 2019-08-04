@@ -20,7 +20,7 @@ named!(parse_adsb_message_kind<&[u8], ADSBMessageKind>,
     alt!(
         bits!(parse_aircraft_identification) |
         bits!(parse_airborne_position) |
-        parse_airborne_velocity
+        bits!(parse_airborne_velocity)
     )
 );
 
@@ -104,42 +104,43 @@ fn parse_sign(input: (&[u8], usize)) -> IResult<(&[u8], usize), i16> {
     ))(input)
 }
 
-named!(match_tc_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(5u8), |tc| *tc == 19));
-named!(match_st_airborne_velocity<(&[u8], usize), u8>, verify!(take_bits!(3u8), |st| *st == 1));
-named!(parse_velocity<(&[u8], usize), u16>, take_bits!(10u16));
-named!(parse_vertical_rate<(&[u8], usize), u16>, take_bits!(9u16));
-named!(take_5_bits<(&[u8], usize), u8>, take_bits!(5u8));
-named!(take_10_bits<(&[u8], usize), u16>, take_bits!(10u16));
+fn parse_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    take_bits(10u16)(input)
+}
 
-named!(parse_airborne_velocity<&[u8], ADSBMessageKind>,
-    bits!(
-        do_parse!(
-            match_tc_airborne_velocity >>
-            match_st_airborne_velocity >>
-            take_5_bits >>
-            ew_sign: parse_sign >>
-            ew_vel: parse_velocity >>
-            ns_sign: parse_sign >>
-            ns_vel: parse_velocity >>
-            vrate_src: parse_vertical_rate_source >>
-            vrate_sign: parse_sign >>
-            vrate: parse_vertical_rate >>
-            take_10_bits >>
-            ({
-                let v_ew = ((ew_vel as i16 - 1) * ew_sign) as f64;
-                let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
-                let h = v_ew.atan2(v_ns) * (360.0 / (2.0 * PI));
-                let heading = if h < 0.0 { h + 360.0 } else { h };
-                ADSBMessageKind::AirborneVelocity {
-                    heading,
-                    ground_speed: (v_ew.powi(2) + v_ns.powi(2)).sqrt(),
-                    vertical_rate: (((vrate - 1) * 64) as i16) * vrate_sign,
-                    vertical_rate_source: vrate_src,
-                }
-            })
-        )
-    )
-);
+fn parse_vertical_rate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    take_bits(9u16)(input)
+}
+
+fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADSBMessageKind> {
+    let (input, _): (_, (u8, u8, u8)) = tuple((
+        verify(take_bits(5u8), |tc| *tc == 19),
+        verify(take_bits(3u8), |st| *st == 1),
+        take_bits(5u8),
+    ))(input)?;
+
+    let (input, (ew_sign, ew_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
+    let (input, (ns_sign, ns_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
+    let (input, (vrate_src, vrate_sign, vrate, _)): (_, (VerticalRateSource, i16, u16, u16)) =
+        tuple((
+            parse_vertical_rate_source,
+            parse_sign,
+            parse_vertical_rate,
+            take_bits(10u16),
+        ))(input)?;
+
+    let v_ew = ((ew_vel as i16 - 1) * ew_sign) as f64;
+    let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
+    let h = v_ew.atan2(v_ns) * (360.0 / (2.0 * PI));
+    let heading = if h < 0.0 { h + 360.0 } else { h };
+    let message = ADSBMessageKind::AirborneVelocity {
+        heading,
+        ground_speed: (v_ew.powi(2) + v_ns.powi(2)).sqrt(),
+        vertical_rate: (((vrate - 1) * 64) as i16) * vrate_sign,
+        vertical_rate_source: vrate_src,
+    };
+    Ok((input, message))
+}
 
 fn parse_icao_address(input: (&[u8], usize)) -> IResult<(&[u8], usize), ICAOAddress> {
     let (input, (a, b, c)): (_, (u8, u8, u8)) =
