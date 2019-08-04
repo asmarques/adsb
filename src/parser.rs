@@ -142,17 +142,17 @@ named!(parse_airborne_velocity<&[u8], ADSBMessageKind>,
     )
 );
 
-named!(parse_icao_address<&[u8], ICAOAddress>,
-    map!(
-        bits!(tuple!(take_bits!(8u8), take_bits!(8u8), take_bits!(8u8))),
-        |(a, b, c)| ICAOAddress(a, b, c)
-    )
-);
+fn parse_icao_address(input: (&[u8], usize)) -> IResult<(&[u8], usize), ICAOAddress> {
+    let (input, (a, b, c)): (_, (u8, u8, u8)) =
+        tuple((take_bits(8u8), take_bits(8u8), take_bits(8u8)))(input)?;
+    let address = ICAOAddress(a, b, c);
+    Ok((input, address))
+}
 
 named!(parse_adsb_message<&[u8], MessageKind>,
     do_parse!(
         capability: map!(bits!(tuple!(tag_bits!(5u8, 0b10001), take_bits!(3u8))), |(_, ca)| ca) >>
-        icao_address: parse_icao_address  >>
+        icao_address: bits!(parse_icao_address)  >>
         type_code: peek!(bits!(take_bits!(5u8))) >>
         kind: parse_adsb_message_kind >>
         (MessageKind::ADSBMessage {
