@@ -65,34 +65,34 @@ pub fn get_position(cpr_frames: (&CPRFrame, &CPRFrame)) -> Option<Position> {
         lat_odd -= 360.0;
     }
 
-    let (lat, mut lon) = if latest_frame == even_frame {
-        let ni = cmp::max(cpr_nl(lat_even), 1) as f64;
-        let m = (cpr_lon_even * (cpr_nl(lat_even) - 1) as f64
-            - cpr_lon_odd * cpr_nl(lat_even) as f64
-            + 0.5)
-            .floor();
-        let lon = (360.0 / ni) * (m % ni + cpr_lon_even);
-        let lat = lat_even;
-        (lat, lon)
+    let lat = if latest_frame == even_frame {
+        lat_even
     } else {
-        let ni = cmp::max(cpr_nl(lat_odd) - 1, 1) as f64;
-        let m = (cpr_lon_even * (cpr_nl(lat_odd) - 1) as f64
-            - cpr_lon_odd * cpr_nl(lat_odd) as f64
-            + 0.5)
-            .floor();
-        let lon = (360.0 / ni) * (m % ni + cpr_lon_odd);
-        let lat = lat_odd;
-        (lat, lon)
+        lat_odd
     };
 
-    if lon >= 180.0 {
-        lon -= 360.0;
-    }
+    let (lat, lon) = get_lat_lon(lat, cpr_lon_even, cpr_lon_odd, &latest_frame.parity);
 
     Some(Position {
         latitude: lat,
         longitude: lon,
     })
+}
+
+fn get_lat_lon(lat: f64, cpr_lon_even: f64, cpr_lon_odd: f64, parity: &Parity) -> (f64, f64) {
+    let (p, c) = if parity == &Parity::Even {
+        (0, cpr_lon_even)
+    } else {
+        (1, cpr_lon_odd)
+    };
+    let ni = cmp::max(cpr_nl(lat) - p, 1) as f64;
+    let m =
+        (cpr_lon_even * (cpr_nl(lat) - 1) as f64 - cpr_lon_odd * cpr_nl(lat) as f64 + 0.5).floor();
+    let mut lon = (360.0 / ni) * (m % ni + c);
+    if lon >= 180.0 {
+        lon -= 360.0;
+    }
+    (lat, lon)
 }
 
 #[cfg(test)]
