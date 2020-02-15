@@ -13,4 +13,3 @@ nom = "5"
 
 [dev-dependencies]
 structopt = "0.2.10"
-failure = "0.1.5"

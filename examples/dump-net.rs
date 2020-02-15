@@ -1,4 +1,3 @@
-use failure::Error;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::net::TcpStream;
@@ -16,7 +15,7 @@ struct Cli {
     port: u16,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::from_args();
     let addr = format!("{}:{}", &args.host, &args.port);
     let stream = TcpStream::connect(&addr)?;
