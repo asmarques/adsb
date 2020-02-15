@@ -1,6 +1,7 @@
 use std::io::BufRead;
 use std::io::BufReader;
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
+use std::time::Duration;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -13,12 +14,15 @@ struct Cli {
     host: String,
     #[structopt(help = "port", default_value = "30002")]
     port: u16,
+    #[structopt(long = "timeout", help = "connection timeout", default_value = "30")]
+    timeout: u64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::from_args();
-    let addr = format!("{}:{}", &args.host, &args.port);
-    let stream = TcpStream::connect(&addr)?;
+    let addr = format!("{}:{}", &args.host, &args.port).parse::<SocketAddr>()?;
+    let timeout = Duration::from_secs(args.timeout);
+    let stream = TcpStream::connect_timeout(&addr, timeout)?;
     let reader = BufReader::new(stream);
     println!("Connected to {}", &addr);
     for line in reader.lines() {
