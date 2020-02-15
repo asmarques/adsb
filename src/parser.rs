@@ -1,8 +1,9 @@
 use super::types::*;
 use nom::bits::bits;
 use nom::branch::alt;
-use nom::combinator::{map, peek, verify};
-use nom::multi::many_m_n;
+use nom::bytes::complete::{tag, take_while_m_n};
+use nom::combinator::{map, map_res, peek, verify};
+use nom::multi::{many0, many_m_n};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::{bits::complete::tag as tag_bits, bits::complete::take as take_bits};
@@ -189,18 +190,15 @@ fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
     return Ok((input, message));
 }
 
-named!(parse_hex_string<&str, Vec<u8>>,
-    many0!(map_res!(take_while_m_n!(2, 2, |d: char| d.is_digit(16)), |d| u8::from_str_radix(d, 16)))
-);
-
-named!(parse_avr_frame<&str, Vec<u8>>,
-    do_parse!(
-        tag!("*") >>
-        bytes: parse_hex_string >>
-        tag!(";") >>
-        (bytes)
-    )
-);
+fn parse_avr_frame(input: &str) -> IResult<&str, Vec<u8>> {
+    let (input, _) = tag("*")(input)?;
+    let (input, bytes) = many0(map_res(
+        take_while_m_n(2, 2, |d: char| d.is_digit(16)),
+        |d| u8::from_str_radix(d, 16),
+    ))(input)?;
+    let (input, _) = tag(";")(input)?;
+    Ok((input, bytes))
+}
 
 /// Parse message from binary data. If successful, returns a tuple containing the parsed message and a slice
 /// of remaining unparsed binary data.

@@ -5,9 +5,6 @@
 //!   - **TC 9-18**: Airborne position
 //!   - **TC 19**: Airborne velocity
 
-#[macro_use]
-extern crate nom;
-
 pub mod cpr;
 mod parser;
 mod types;
