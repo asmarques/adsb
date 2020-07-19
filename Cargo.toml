@@ -12,4 +12,12 @@ edition = "2018"
 nom = "5"
 
 [dev-dependencies]
+criterion = "0.3"
 structopt = "0.2.10"
+
+[lib]
+bench = false
+
+[[bench]]
+name = "parser"
+harness = false
