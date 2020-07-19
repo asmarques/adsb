@@ -3,8 +3,10 @@ use nom::bits::bits;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::combinator::{map, map_res, peek, verify};
+use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, many_m_n};
 use nom::sequence::tuple;
+use nom::Err;
 use nom::IResult;
 use nom::{bits::complete::tag as tag_bits, bits::complete::take as take_bits};
 use std::f64::consts::PI;
@@ -42,8 +44,13 @@ fn parse_altitude(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
         )),
         take_bits(4u8),
     ))(input)?;
-    let altitude = (l.rotate_left(4) + r) * q - 1000;
-    Ok((input, altitude))
+    let altitude = (l.rotate_left(4) + r)
+        .checked_mul(q)
+        .and_then(|r| r.checked_sub(1000));
+    match altitude {
+        Some(value) => Ok((input, value)),
+        None => Err(Err::Error(make_error(input, ErrorKind::TooLarge))),
+    }
 }
 
 fn parse_cpr_parity(input: (&[u8], usize)) -> IResult<(&[u8], usize), Parity> {
@@ -311,12 +318,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_invalid_message() {
-        let r = b"\x00";
-        assert!(parse_binary(r).is_err());
-    }
-
-    #[test]
     fn parse_single_avr_frame() {
         let r = "*8D4840D6202CC371C32CE0576098;";
         let (_, m) = parse_avr_frame(&r).unwrap();
@@ -324,5 +325,12 @@ mod tests {
             m,
             b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98"
         );
+    }
+
+    #[test]
+    #[allow(unused_must_use)]
+    fn parse_invalid_messages() {
+        parse_binary(b"\x00");
+        parse_binary(b"\x8a\x8f\xff`J\xb4\xc0");
     }
 }
