@@ -122,7 +122,7 @@ fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
 
     let (input, (ew_sign, ew_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
     let (input, (ns_sign, ns_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
-    let (input, (vrate_src, vrate_sign, vrate, _)): (_, (VerticalRateSource, i16, u16, u16)) =
+    let (input, (vrate_src, vrate_sign, vrate_value, _)): (_, (VerticalRateSource, i16, u16, u16)) =
         tuple((
             parse_vertical_rate_source,
             parse_sign,
@@ -134,10 +134,17 @@ fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
     let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
     let h = v_ew.atan2(v_ns) * (360.0 / (2.0 * PI));
     let heading = if h < 0.0 { h + 360.0 } else { h };
+
+    let vrate = vrate_value
+        .checked_sub(1)
+        .and_then(|v| v.checked_mul(64))
+        .map(|v| (v as i16) * vrate_sign)
+        .ok_or(Err::Error(make_error(input, ErrorKind::TooLarge)))?;
+
     let message = ADSBMessageKind::AirborneVelocity {
         heading,
         ground_speed: (v_ew.powi(2) + v_ns.powi(2)).sqrt(),
-        vertical_rate: (((vrate - 1) * 64) as i16) * vrate_sign,
+        vertical_rate: vrate,
         vertical_rate_source: vrate_src,
     };
     Ok((input, message))
@@ -332,5 +339,6 @@ mod tests {
     fn parse_invalid_messages() {
         parse_binary(b"\x00");
         parse_binary(b"\x8a\x8f\xff`J\xb4\xc0");
+        parse_binary(b"\x8a\xba\x8a#\x99\xff\x04\x00\x00\x00a");
     }
 }
