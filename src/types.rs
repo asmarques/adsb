@@ -28,12 +28,12 @@ where
 }
 
 /// Unique 24-bit ICAO address assigned to an aircraft upon national registration.
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ICAOAddress(pub(crate) u8, pub(crate) u8, pub(crate) u8);
 
-impl fmt::Debug for ICAOAddress {
+impl fmt::Display for ICAOAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:X}{:X}{:X}", self.0, self.1, self.2)
+        write!(f, "{:02X}{:02X}{:02X}", self.0, self.1, self.2)
     }
 }
 
