@@ -1,6 +1,8 @@
 # adsb
 
 [![Build Status](https://travis-ci.org/asmarques/adsb.svg)](https://travis-ci.org/asmarques/adsb)
+[![Crate](https://img.shields.io/crates/v/adsb.svg)](https://crates.io/crates/adsb)
+[![Documentation](https://docs.rs/adsb/badge.svg)](https://docs.rs/adsb)
 
 A Rust parser for ADS-B/Mode-S messages.
 
