@@ -139,7 +139,7 @@ fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
         .checked_sub(1)
         .and_then(|v| v.checked_mul(64))
         .map(|v| (v as i16) * vrate_sign)
-        .ok_or(Err::Error(make_error(input, ErrorKind::TooLarge)))?;
+        .ok_or_else(|| Err::Error(make_error(input, ErrorKind::TooLarge)))?;
 
     let message = ADSBMessageKind::AirborneVelocity {
         heading,
@@ -201,7 +201,7 @@ fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
         downlink_format,
         kind,
     };
-    return Ok((input, message));
+    Ok((input, message))
 }
 
 fn parse_avr_frame(input: &str) -> IResult<&str, Vec<u8>> {

@@ -98,6 +98,7 @@ fn get_lat_lon(lat: f64, cpr_lon_even: f64, cpr_lon_odd: f64, parity: &Parity) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn cpr_calculate_position() {
@@ -118,7 +119,7 @@ mod tests {
         };
 
         let position = get_position((&odd, &even)).unwrap();
-        assert_eq!(position.latitude, 52.25720214843750);
-        assert_eq!(position.longitude, 3.91937255859375);
+        assert_approx_eq!(position.latitude, 52.2572021484375);
+        assert_approx_eq!(position.longitude, 3.91937255859375);
     }
 }

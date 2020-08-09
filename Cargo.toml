@@ -12,6 +12,7 @@ edition = "2018"
 nom = "5"
 
 [dev-dependencies]
+assert_approx_eq = "1.1"
 criterion = "0.3"
 structopt = "0.2.10"
 
