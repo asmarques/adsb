@@ -2,7 +2,7 @@
 
 [![Crate](https://img.shields.io/crates/v/adsb.svg)](https://crates.io/crates/adsb)
 [![Documentation](https://docs.rs/adsb/badge.svg)](https://docs.rs/adsb)
-![Build Status](https://github.com/asmarques/adsb/workflows/Continuous%20integration/badge.svg)
+![Build Status](https://github.com/asmarques/adsb/workflows/CI/badge.svg)
 
 A Rust parser for ADS-B/Mode-S messages.
 
