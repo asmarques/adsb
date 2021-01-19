@@ -166,8 +166,17 @@ fn parse_adsb_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
 }
 
 fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
-    let (input, (_, capability)): (_, (u8, u8)) =
-        tuple((tag_bits(0b10001, 5u8), take_bits(3u8)))(input)?;
+    let (input, (_, capability)): (_, (u8, u8)) = tuple((
+        alt((
+            // If the message comes from a Mode S transponder, it uses DF=17. "Non-transponder-based
+            // ADS-B transmitting subsystems and TIS-B transmitting equipment" use DF=18. Note that
+            // DF=18 is also sometimes used by systems that generate synthetic messages representing
+            // multilaterated aircraft positions.
+            tag_bits(0b10001 /* DF=17 */, 5u8),
+            tag_bits(0b10010 /* DF=18 */, 5u8),
+        )),
+        take_bits(3u8),
+    ))(input)?;
 
     let (input, (icao_address, type_code, kind)) = tuple((
         parse_icao_address,
@@ -319,6 +328,32 @@ mod tests {
                     ground_speed: 159.20113064925135,
                     vertical_rate: -832,
                     vertical_rate_source: VerticalRateSource::BarometricPressureAltitude,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn parse_df18_airborne_position_even_message() {
+        // This is a TIS-B message.
+        let r = b"\x95\x29\x82\xE5\x68\x1B\x82\xB2\x2B\xB7\xE6\x34\xAE\x96";
+        let (_, m) = parse_message(r).unwrap();
+        assert_eq!(m.downlink_format, 18);
+        assert_eq!(
+            m.kind,
+            MessageKind::ADSBMessage {
+                capability: CAPABILITY,
+                icao_address: ICAOAddress(0x29, 0x82, 0xE5),
+                type_code: 13,
+                kind: ADSBMessageKind::AirbornePosition {
+                    altitude: 4400,
+                    cpr_frame: CPRFrame {
+                        parity: Parity::Even,
+                        position: Position {
+                            latitude: 88341.0,
+                            longitude: 112614.0,
+                        }
+                    },
                 }
             }
         );
