@@ -30,16 +30,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             ))
         })
     });
-    c.bench_function("cpr_nl_high_lat", |b| {
-        b.iter(|| {
-            cpr_nl(black_box(89.0))
-        })
-    });
-    c.bench_function("cpr_nl_low_lat", |b| {
-        b.iter(|| {
-            cpr_nl(black_box(0.0))
-        })
-    });
+    c.bench_function("cpr_nl_high_lat", |b| b.iter(|| cpr_nl(black_box(89.0))));
+    c.bench_function("cpr_nl_low_lat", |b| b.iter(|| cpr_nl(black_box(0.0))));
 }
 
 criterion_group!(benches, criterion_benchmark);
