@@ -194,7 +194,7 @@ pub fn cpr_nl(lat: f64) -> u64 {
     if lat < 87.00000000 {
         return 2;
     }
-    return 1;
+    1
 }
 
 /// Calculates a globally unambiguous position based on a pair of frames containing position information
