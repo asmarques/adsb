@@ -10,7 +10,7 @@ const CPR_MAX: f64 = 131_072.0;
 
 // The NL function uses the precomputed table from 1090-WP-9-14
 // This code is translated from https://github.com/wiedehopf/readsb/blob/dev/cpr.c
-
+#[doc(hidden)]
 pub fn cpr_nl(lat: f64) -> u64 {
     let mut lat = lat;
     if lat < 0.0 {
@@ -283,10 +283,25 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     #[test]
-    fn test_cpr_nl() {
+    fn test_cpr_nl_high_low_lat() {
         assert_eq!(cpr_nl(89.9), 1);
         assert_eq!(cpr_nl(-89.9), 1);
         assert_eq!(cpr_nl(86.9), 2);
+        assert_eq!(cpr_nl(-86.9), 2);
+    }
+
+    #[test]
+    fn test_cpr_nl() {
+        use std::f64::consts::PI;
+
+        // Lookup table intervals should match the formula defined in 1090-WP-14-09R1 (Page 47)
+        for nl in 2..((4 * (NZ as u64)) - 1) {
+            let lat = (180.0 / PI)
+                * (((1.0 - (PI / (2.0 * NZ)).cos()) / (1.0 - ((2.0 * PI) / (nl as f64)).cos()))
+                    .sqrt())
+                .acos();
+            assert_eq!(cpr_nl(lat - 0.00000001), nl, "lat: {}", lat);
+        }
     }
 
     #[test]

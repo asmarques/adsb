@@ -1,11 +1,13 @@
 [package]
 name = "adsb"
-version = "0.2.3"
+version = "0.2.4"
 description = "ADS-B/Mode-S parser"
 authors = ["António Marques <me@antoniomarques.eu>"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/asmarques/adsb"
 readme = "README.md"
+keywords = ["adsb", "flight", "aircraft"]
+categories = ["encoding", "parser-implementations"]
 edition = "2018"
 
 [dependencies]
