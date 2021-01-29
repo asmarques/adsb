@@ -6,8 +6,13 @@
 //!   - **TC 19**: Airborne velocity
 
 pub mod cpr;
+mod crc;
 mod parser;
 mod types;
 
+pub use crc::*;
 pub use parser::*;
 pub use types::*;
+
+#[macro_use]
+extern crate lazy_static;
