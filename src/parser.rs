@@ -359,12 +359,6 @@ mod tests {
 
     #[test]
     fn test_parse_mode_s_2() {
-        // let r = b"00101 000 11111 101010 1111110101010 11111111 00000000 11111111";
-        // let r: [u8; 7] = [0b00101000, 0b11111101, 0b01011111, 0b10101010, 0b11111111, 0b00000000, 0b11111111];
-        // let r = b"\x20\x00\x15\xB8\xFC\x39\x7A\x00\x00";
-        // let r = b"\x20\x00\x04\x30\x19\x11\x27\x00\x00";
-        // let r = b"\x28\x00\x0C\x2C\xC1\x05\xD7\x00\x00";
-        // let r = b"\x20\x28\x04\x22\x34\x6C\xFF\x00\x00";
         let r = b"\x28\x00\x08\x08\xF4\x60\xE0\x00\x00\x00\x00"; // squawk 1200
         let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
         assert_eq!(
