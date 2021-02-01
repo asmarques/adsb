@@ -35,7 +35,7 @@ impl fmt::Display for CrcError {
 
 impl Error for CrcError {}
 
-pub fn mode_s_crc(input: &[u8], num_bytes: u8) -> Result<u32, CrcError> {
+pub(crate) fn mode_s_crc(input: &[u8], num_bytes: u8) -> Result<u32, CrcError> {
     let mut rem = 0u32;
     if num_bytes < 3 {
         return Err(CrcError(String::from(

@@ -126,7 +126,6 @@ pub enum MessageKind {
 pub enum ModeSMessageKind {
     // DF=5
     SurveillanceIdentity { squawk: Squawk },
-    Unknown,
 }
 
 /// Kind of ADSB message.

@@ -199,6 +199,18 @@ fn parse_unknown(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> 
     Ok((input, MessageKind::Unknown))
 }
 
+// In the squawk (identity) field bits are interleaved as follows in
+// (message bit 20 to bit 32):
+//
+// C1-A1-C2-A2-C4-A4-ZERO-B1-D1-B2-D2-B4-D4
+//
+// So every group of three bits A, B, C, D represent an integer from 0 to 7.
+//
+// The actual meaning is just 4 octal numbers, but we convert it into a hex
+// number tha happens to represent the four octal numbers.
+//
+// For more info: http://en.wikipedia.org/wiki/Gillham_code
+
 pub fn decode_id_13_field(f: u16) -> u16 {
     let mut hex_gillham = 0;
     if f & 0x1000 != 0 {
@@ -269,7 +281,8 @@ fn parse_mode_s_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), M
 
 fn parse_mode_s_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
     let (input, kind) = parse_mode_s_message_kind(input)?;
-    let crc = mode_s_crc(input.0, 7).unwrap();
+    let crc = mode_s_crc(input.0, 7)
+        .map_err(|_| Err::Error(make_error(input, ErrorKind::LengthValue)))?;
     let icao = (
         (crc & 0xFF0000) >> 16,
         (crc & 0x00FF00) >> 8,

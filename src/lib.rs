@@ -10,7 +10,6 @@ mod crc;
 mod parser;
 mod types;
 
-pub use crc::*;
 pub use parser::*;
 pub use types::*;
 
