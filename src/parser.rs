@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_parse_mode_s_0() {
-        let r = b"\x28\x00\x1d\x8a\x2d\xa5\xae\x00\x00"; // AC3857 airborne squawking 5670.
+        let r = b"\x28\x00\x1d\x8a\x2d\xa5\xae"; // AC3857 airborne squawking 5670.
         let (_remaining, mm) = parse_mode_s_message_kind((r, 0)).expect("parse error");
         assert_eq!(
             mm,
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_parse_mode_s_1() {
-        let r = b"\x28\x00\x08\x08\xF4\x60\xE0\x00\x00\x00\x00"; // squawk 1200
+        let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
         let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
         assert_eq!(
             mm,
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_parse_mode_s_2() {
-        let r = b"\x28\x00\x08\x08\xF4\x60\xE0\x00\x00\x00\x00"; // squawk 1200
+        let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
         let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
         assert_eq!(
             mm,
