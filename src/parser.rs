@@ -270,7 +270,7 @@ fn parse_surveillance_identity(input: (&[u8], usize)) -> IResult<(&[u8], usize),
     Ok((
         input,
         ModeSMessageKind::SurveillanceIdentity {
-            squawk: Squawk::from_u16(squawk_code),
+            squawk: Squawk::from(squawk_code),
         },
     ))
 }

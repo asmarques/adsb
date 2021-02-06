@@ -42,8 +42,8 @@ impl fmt::Display for ICAOAddress {
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub struct Squawk(pub(crate) u8, pub(crate) u8);
 
-impl Squawk {
-    pub fn from_u16(value: u16) -> Squawk {
+impl From<u16> for Squawk {
+    fn from(value: u16) -> Self {
         Squawk(((value & 0xFF00) >> 8) as u8, (value & 0x00FF) as u8)
     }
 }
@@ -52,7 +52,7 @@ impl FromStr for Squawk {
     type Err = std::num::ParseIntError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Squawk::from_u16(u16::from_str_radix(value, 16)?))
+        Ok(u16::from_str_radix(value, 16)?.into())
     }
 }
 
@@ -165,11 +165,11 @@ mod tests {
 
     #[test]
     fn test_squawk() {
-        assert_eq!(Squawk::from_u16(22128), Squawk(86, 112));
+        assert_eq!(Squawk::from(22128), Squawk(86, 112));
         assert_eq!(Squawk::from_str("5670").unwrap(), Squawk(86, 112));
         assert_eq!(format!("{}", Squawk::from_str("5670").unwrap()), "5670");
         // 4608 1200
-        assert_eq!(Squawk::from_u16(4608), Squawk(18, 0));
+        assert_eq!(Squawk::from(4608), Squawk(18, 0));
         assert_eq!(Squawk::from_str("1200").unwrap(), Squawk(18, 0));
         assert_eq!(format!("{}", Squawk::from_str("1200").unwrap()), "1200");
     }
