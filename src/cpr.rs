@@ -10,8 +10,7 @@ const CPR_MAX: f64 = 131_072.0;
 
 // The NL function uses the precomputed table from 1090-WP-9-14
 // This code is translated from https://github.com/wiedehopf/readsb/blob/dev/cpr.c
-#[doc(hidden)]
-pub fn cpr_nl(lat: f64) -> u64 {
+pub(crate) fn cpr_nl(lat: f64) -> u64 {
     let mut lat = lat;
     if lat < 0.0 {
         // Table is symmetric about the equator
