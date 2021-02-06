@@ -1,3 +1,4 @@
+use super::crc::*;
 use super::types::*;
 use nom::bits::bits;
 use nom::branch::alt;
@@ -198,10 +199,107 @@ fn parse_unknown(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> 
     Ok((input, MessageKind::Unknown))
 }
 
+// In the squawk (identity) field bits are interleaved as follows in
+// (message bit 20 to bit 32):
+//
+// C1-A1-C2-A2-C4-A4-ZERO-B1-D1-B2-D2-B4-D4
+//
+// So every group of three bits A, B, C, D represent an integer from 0 to 7.
+//
+// The actual meaning is just 4 octal numbers, but we convert it into a hex
+// number tha happens to represent the four octal numbers.
+//
+// For more info: http://en.wikipedia.org/wiki/Gillham_code
+
+pub fn decode_id_13_field(f: u16) -> u16 {
+    let mut hex_gillham = 0;
+    if f & 0x1000 != 0 {
+        hex_gillham |= 0x0010;
+    } // Bit 12 = C1
+    if f & 0x0800 != 0 {
+        hex_gillham |= 0x1000;
+    } // Bit 11 = A1
+    if f & 0x0400 != 0 {
+        hex_gillham |= 0x0020;
+    } // Bit 10 = C2
+    if f & 0x0200 != 0 {
+        hex_gillham |= 0x2000;
+    } // Bit  9 = A2
+    if f & 0x0100 != 0 {
+        hex_gillham |= 0x0040;
+    } // Bit  8 = C4
+    if f & 0x0080 != 0 {
+        hex_gillham |= 0x4000;
+    } // Bit  7 = A4
+      //if (ID13Field & 0x0040) {hexGillham |= 0x0800;} // Bit  6 = X  or M
+    if f & 0x0020 != 0 {
+        hex_gillham |= 0x0100;
+    } // Bit  5 = B1
+    if f & 0x0010 != 0 {
+        hex_gillham |= 0x0001;
+    } // Bit  4 = D1 or Q
+    if f & 0x0008 != 0 {
+        hex_gillham |= 0x0200;
+    } // Bit  3 = B2
+    if f & 0x0004 != 0 {
+        hex_gillham |= 0x0002;
+    } // Bit  2 = D2
+    if f & 0x0002 != 0 {
+        hex_gillham |= 0x0400;
+    } // Bit  1 = B4
+    if f & 0x0001 != 0 {
+        hex_gillham |= 0x0004;
+    } // Bit  0 = D4
+
+    hex_gillham
+}
+
+fn parse_surveillance_identity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ModeSMessageKind> {
+    let (_input, (_df, _flight_status, _downlink_req, _utility_msg, id_code, _parity)): (
+        _,
+        (u8, u8, u8, u8, u16, u32),
+    ) = tuple((
+        tag_bits(0b00101, 5u8),
+        take_bits(3u8),
+        take_bits(5u8),
+        take_bits(6u8),
+        take_bits(13u8),
+        take_bits(24u8),
+    ))(input)?;
+    let squawk_code = decode_id_13_field(id_code);
+    Ok((
+        input,
+        ModeSMessageKind::SurveillanceIdentity {
+            squawk: Squawk::from_u16(squawk_code),
+        },
+    ))
+}
+
+fn parse_mode_s_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), ModeSMessageKind> {
+    parse_surveillance_identity(input)
+}
+
+fn parse_mode_s_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
+    let (input, kind) = parse_mode_s_message_kind(input)?;
+    let crc = mode_s_crc(input.0, 7)
+        .map_err(|_| Err::Error(make_error(input, ErrorKind::LengthValue)))?;
+    let icao = (
+        (crc & 0xFF0000) >> 16,
+        (crc & 0x00FF00) >> 8,
+        crc & 0x0000FF,
+    );
+    let message = MessageKind::ModeSMessage {
+        icao_address: ICAOAddress(icao.0 as u8, icao.1 as u8, icao.2 as u8),
+        kind,
+    };
+
+    Ok((input, message))
+}
+
 fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
     let (input, (downlink_format, kind, _)): (_, (u8, MessageKind, u32)) = bits(tuple((
         peek(take_bits(5u8)),
-        alt((parse_adsb_message, parse_unknown)),
+        alt((parse_mode_s_message, parse_adsb_message, parse_unknown)),
         // TODO: check CRC
         take_bits(24u32),
     )))(input)?;
@@ -240,8 +338,52 @@ pub fn parse_avr(data: &str) -> Result<(Message, &str), ParserError> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     const CAPABILITY: u8 = 5;
+
+    #[test]
+    fn test_parse_mode_s_0() {
+        let r = b"\x28\x00\x1d\x8a\x2d\xa5\xae"; // AC3857 airborne squawking 5670.
+        let (_remaining, mm) = parse_mode_s_message_kind((r, 0)).expect("parse error");
+        assert_eq!(
+            mm,
+            ModeSMessageKind::SurveillanceIdentity {
+                squawk: Squawk::from_str("5670").unwrap()
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_mode_s_1() {
+        let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
+        let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
+        assert_eq!(
+            mm,
+            MessageKind::ModeSMessage {
+                icao_address: ICAOAddress(0xA4, 0x04, 0x42),
+                kind: ModeSMessageKind::SurveillanceIdentity {
+                    squawk: Squawk::from_str("1200").unwrap()
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_mode_s_2() {
+        let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
+        let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
+        assert_eq!(
+            mm,
+            MessageKind::ModeSMessage {
+                icao_address: ICAOAddress(0xA4, 0x04, 0x42),
+                kind: ModeSMessageKind::SurveillanceIdentity {
+                    squawk: Squawk::from_str("1200").unwrap()
+                }
+            }
+        );
+    }
 
     #[test]
     fn parse_aircraft_identification_message() {
