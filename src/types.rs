@@ -110,6 +110,7 @@ pub enum MessageKind {
         type_code: u8,
         kind: ADSBMessageKind,
     },
+    /// Mode-S message
     ModeSMessage {
         icao_address: ICAOAddress,
         kind: ModeSMessageKind,
@@ -118,10 +119,14 @@ pub enum MessageKind {
     Unknown,
 }
 
+/// Kind of Mode-S message.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ModeSMessageKind {
-    // DF=5
-    SurveillanceIdentity { squawk: Squawk },
+    /// Surveillance Identity message (DF 5)
+    SurveillanceIdentity {
+        /// Squawk code
+        squawk: Squawk,
+    },
 }
 
 /// Kind of ADSB message.
