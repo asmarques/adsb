@@ -211,7 +211,7 @@ fn parse_unknown(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> 
 //
 // For more info: http://en.wikipedia.org/wiki/Gillham_code
 
-pub fn decode_id_13_field(f: u16) -> u16 {
+fn decode_id_13_field(f: u16) -> u16 {
     let mut hex_gillham = 0;
     if f & 0x1000 != 0 {
         hex_gillham |= 0x0010;
