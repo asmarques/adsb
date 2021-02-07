@@ -13,11 +13,7 @@ impl fmt::Display for ParserError {
     }
 }
 
-impl Error for ParserError {
-    fn description(&self) -> &str {
-        &self.0
-    }
-}
+impl Error for ParserError {}
 
 impl<T> From<nom::Err<T>> for ParserError
 where
