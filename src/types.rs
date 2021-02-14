@@ -103,17 +103,24 @@ pub struct Message {
 /// Kind of ADS-B/Mode-S message.
 #[derive(Debug, PartialEq, Clone)]
 pub enum MessageKind {
-    /// ADSB message (DF 17)
+    /// ADSB message (DF 17/18)
     ADSBMessage {
+        /// Aircraft transponder capability
         capability: u8,
+        /// Aircraft ICAO address
         icao_address: ICAOAddress,
+        /// Type code used to identify ADSB message contents
         type_code: u8,
+        /// Kind of ADSB message
         kind: ADSBMessageKind,
+        /// True if the CRC of the received message is valid
         crc: bool,
     },
     /// Mode-S message
     ModeSMessage {
+        /// Aircraft ICAO address
         icao_address: ICAOAddress,
+        /// Kind of Mode S message
         kind: ModeSMessageKind,
     },
     /// Unsupported message

@@ -8,6 +8,7 @@ A Rust parser for ADS-B/Mode-S messages.
 
 Messages with the following Downlink Formats (DF) are supported:
 
+- **DF 5**: Surveillance identity (squawk code)
 - **DF 17/18**: Automatic Dependent Surveillance - Broadcast (ADS-B)
   - **TC 1-4**: Aircraft identification and category
   - **TC 9-18**: Airborne position
