@@ -166,7 +166,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_squawk() {
+    fn convert_squawk() {
         assert_eq!(Squawk::from(22128), Squawk(86, 112));
         assert_eq!(Squawk::from_str("5670").unwrap(), Squawk(86, 112));
         assert_eq!(format!("{}", Squawk::from_str("5670").unwrap()), "5670");

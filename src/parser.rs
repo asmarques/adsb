@@ -351,7 +351,7 @@ mod tests {
     const CAPABILITY: u8 = 5;
 
     #[test]
-    fn test_parse_mode_s_0() {
+    fn parse_mode_s_surveillance_identity_0() {
         let r = b"\x28\x00\x1d\x8a\x2d\xa5\xae"; // AC3857 airborne squawking 5670.
         let (_remaining, mm) = parse_mode_s_message_kind((r, 0)).expect("parse error");
         assert_eq!(
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mode_s_1() {
+    fn parse_mode_s_surveillance_identity_1() {
         let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
         let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
         assert_eq!(
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mode_s_2() {
+    fn parse_mode_s_surveillance_identity_2() {
         let r = b"\x28\x00\x08\x08\xF4\x60\xE0"; // squawk 1200
         let (_remaining, mm) = parse_mode_s_message((r, 0)).expect("parse error");
         assert_eq!(
@@ -393,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_aircraft_identification_message() {
+    fn parse_adsb_aircraft_identification_message() {
         let r = b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98";
         let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_airborne_position_even_message() {
+    fn parse_adsb_airborne_position_even_message() {
         let r = b"\x8D\x40\x62\x1D\x58\xC3\x82\xD6\x90\xC8\xAC\x28\x63\xA7";
         let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
@@ -439,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_airborne_position_odd_message() {
+    fn parse_adsb_airborne_position_odd_message() {
         let r = b"\x8D\x40\x62\x1D\x58\xC3\x86\x43\x5C\xC4\x12\x69\x2A\xD6";
         let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
@@ -465,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_airborne_velocity_ground_speed() {
+    fn parse_adsb_airborne_velocity_ground_speed() {
         let r = b"\x8D\x48\x50\x20\x99\x44\x09\x94\x08\x38\x17\x5B\x28\x4F";
         let (_, m) = parse_message(r).unwrap();
         assert_eq!(m.downlink_format, 17);
@@ -487,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_df18_airborne_position_even_message() {
+    fn parse_adsb_df18_airborne_position_even_message() {
         // This is a TIS-B message.
         let r = b"\x95\x29\x82\xE5\x68\x1B\x82\xB2\x2B\xB7\xE6\x34\xAE\x96";
         let (_, m) = parse_message(r).unwrap();

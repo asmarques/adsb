@@ -282,7 +282,7 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     #[test]
-    fn test_cpr_nl_high_low_lat() {
+    fn cpr_nl_high_low_lat() {
         assert_eq!(cpr_nl(89.9), 1);
         assert_eq!(cpr_nl(-89.9), 1);
         assert_eq!(cpr_nl(86.9), 2);
@@ -290,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cpr_nl() {
+    fn cpr_nl_intervals() {
         use std::f64::consts::PI;
 
         // Lookup table intervals should match the formula defined in 1090-WP-14-09R1 (Page 47)
