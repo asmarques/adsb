@@ -167,6 +167,7 @@ fn parse_adsb_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
 }
 
 fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
+    let start = input.0;
     let (input, (_, capability)): (_, (u8, u8)) = tuple((
         alt((
             // If the message comes from a Mode S transponder, it uses DF=17. "Non-transponder-based
@@ -179,17 +180,26 @@ fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageK
         take_bits(3u8),
     ))(input)?;
 
-    let (input, (icao_address, type_code, kind)) = tuple((
+    let (input, (icao_address, type_code, kind, _crc)): (_, (_, _, _, u32)) = tuple((
         parse_icao_address,
         peek(take_bits(5u8)),
         parse_adsb_message_kind,
+        take_bits(24u8),
     ))(input)?;
+
+    let original_len = start.len();
+    let remaining_len = input.0.len();
+    let payload = &start[0..(original_len - remaining_len)];
+    let rem = get_crc_remainder(payload)
+        .map_err(|_| Err::Error(make_error(input, ErrorKind::LengthValue)))?;
+    let crc = rem == 0;
 
     let message = MessageKind::ADSBMessage {
         capability,
         icao_address,
         type_code,
         kind,
+        crc,
     };
 
     Ok((input, message))
@@ -281,12 +291,12 @@ fn parse_mode_s_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), M
 
 fn parse_mode_s_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
     let (input, kind) = parse_mode_s_message_kind(input)?;
-    let crc = mode_s_crc(input.0, 7)
+    let rem = get_crc_remainder(&input.0[0..7])
         .map_err(|_| Err::Error(make_error(input, ErrorKind::LengthValue)))?;
     let icao = (
-        (crc & 0xFF0000) >> 16,
-        (crc & 0x00FF00) >> 8,
-        crc & 0x0000FF,
+        (rem & 0xFF0000) >> 16,
+        (rem & 0x00FF00) >> 8,
+        rem & 0x0000FF,
     );
     let message = MessageKind::ModeSMessage {
         icao_address: ICAOAddress(icao.0 as u8, icao.1 as u8, icao.2 as u8),
@@ -297,13 +307,10 @@ fn parse_mode_s_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), Messag
 }
 
 fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
-    let (input, (downlink_format, kind, _)): (_, (u8, MessageKind, u32)) = bits(tuple((
+    let (input, (downlink_format, kind)): (_, (u8, MessageKind)) = bits(tuple((
         peek(take_bits(5u8)),
         alt((parse_mode_s_message, parse_adsb_message, parse_unknown)),
-        // TODO: check CRC
-        take_bits(24u32),
     )))(input)?;
-
     let message = Message {
         downlink_format,
         kind,
@@ -399,7 +406,8 @@ mod tests {
                 kind: ADSBMessageKind::AircraftIdentification {
                     emitter_category: 0,
                     callsign: "KLM1023 ".to_string(),
-                }
+                },
+                crc: true,
             }
         );
     }
@@ -424,7 +432,8 @@ mod tests {
                             longitude: 51372.0,
                         }
                     },
-                }
+                },
+                crc: true,
             }
         );
     }
@@ -449,7 +458,8 @@ mod tests {
                             longitude: 50194.0,
                         }
                     },
-                }
+                },
+                crc: true,
             }
         );
     }
@@ -470,7 +480,8 @@ mod tests {
                     ground_speed: 159.20113064925135,
                     vertical_rate: -832,
                     vertical_rate_source: VerticalRateSource::BarometricPressureAltitude,
-                }
+                },
+                crc: true,
             }
         );
     }
@@ -496,9 +507,17 @@ mod tests {
                             longitude: 112614.0,
                         }
                     },
-                }
+                },
+                crc: true,
             }
         );
+    }
+
+    #[test]
+    fn parse_adsb_invalid_crc() {
+        let r = b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x99";
+        let (_, m) = parse_message(r).unwrap();
+        assert!(matches!(m.kind,  MessageKind::ADSBMessage { crc: false , .. } ));
     }
 
     #[test]

@@ -109,6 +109,7 @@ pub enum MessageKind {
         icao_address: ICAOAddress,
         type_code: u8,
         kind: ADSBMessageKind,
+        crc: bool,
     },
     /// Mode-S message
     ModeSMessage {

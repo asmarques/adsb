@@ -24,25 +24,31 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone)]
-pub struct CrcError(String);
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum CrcError {
+    InputTooShort,
+}
 
 impl fmt::Display for CrcError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(
+            f,
+            "{}",
+            match self {
+                CrcError::InputTooShort => "length in bytes must be >= 3 to calculate CRC",
+            }
+        )
     }
 }
 
 impl Error for CrcError {}
 
-pub(crate) fn mode_s_crc(input: &[u8], num_bytes: u8) -> Result<u32, CrcError> {
+pub(crate) fn get_crc_remainder(input: &[u8]) -> Result<u32, CrcError> {
     let mut rem = 0u32;
+    let num_bytes = input.len();
     if num_bytes < 3 {
-        return Err(CrcError(String::from(
-            "num_bytes must be >= 3 to calculate Mode S CRC",
-        )));
+        return Err(CrcError::InputTooShort);
     }
-    let num_bytes = num_bytes as usize;
     for byte in input.iter().take(num_bytes - 3) {
         let idx = (*byte as u32) ^ ((rem & 0xff0000) >> 16);
         rem = (rem << 8) ^ CRC_TABLE[idx as usize];
@@ -53,4 +59,34 @@ pub(crate) fn mode_s_crc(input: &[u8], num_bytes: u8) -> Result<u32, CrcError> {
         ^ ((input[num_bytes - 2] as u32) << 8)
         ^ (input[num_bytes - 1] as u32);
     Ok(rem)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crc_valid() {
+        let message_with_crc = b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98";
+        assert_eq!(get_crc_remainder(message_with_crc).unwrap(), 0);
+        let message_without_crc = &message_with_crc[0..message_with_crc.len() - 3];
+        let crc = &message_with_crc[message_with_crc.len() - 3..message_with_crc.len()];
+        assert_eq!(
+            &get_crc_remainder([message_without_crc, b"\x00\x00\x00"].concat().as_slice())
+                .unwrap()
+                .to_be_bytes()[1..4],
+            crc
+        );
+    }
+
+    #[test]
+    fn crc_invalid() {
+        let message_invalid_crc = b"\x8E\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98";
+        assert_eq!(get_crc_remainder(message_invalid_crc), Ok(15242120));
+    }
+
+    #[test]
+    fn crc_input_too_short() {
+        assert_eq!(get_crc_remainder(b"\x60\x98"), Err(CrcError::InputTooShort));
+    }
 }
