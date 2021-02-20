@@ -205,6 +205,7 @@ fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageK
     Ok((input, message))
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn parse_unknown(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
     Ok((input, MessageKind::Unknown))
 }
@@ -517,7 +518,10 @@ mod tests {
     fn parse_adsb_invalid_crc() {
         let r = b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x99";
         let (_, m) = parse_message(r).unwrap();
-        assert!(matches!(m.kind,  MessageKind::ADSBMessage { crc: false , .. } ));
+        assert!(matches!(
+            m.kind,
+            MessageKind::ADSBMessage { crc: false, .. }
+        ));
     }
 
     #[test]
