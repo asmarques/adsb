@@ -1,25 +1,22 @@
+use clap::Parser;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
-use structopt::StructOpt;
 
-#[derive(StructOpt)]
-#[structopt(
-    name = "dump-net",
-    about = "Parse messages from a TCP server in AVR format."
-)]
+#[derive(Parser, Debug)]
+#[command(about = "Parse messages from a TCP server in AVR format.")]
 struct Cli {
-    #[structopt(help = "host")]
+    #[arg(help = "Host")]
     host: String,
-    #[structopt(help = "port", default_value = "30002")]
+    #[arg(help = "Port", default_value = "30002")]
     port: u16,
-    #[structopt(long = "timeout", help = "connection timeout", default_value = "30")]
+    #[arg(long, help = "Connection timeout", default_value = "30")]
     timeout: u64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
     let addr = format!("{}:{}", &args.host, &args.port).parse::<SocketAddr>()?;
     let timeout = Duration::from_secs(args.timeout);
     let stream = TcpStream::connect_timeout(&addr, timeout)?;
