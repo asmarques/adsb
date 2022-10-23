@@ -76,14 +76,14 @@ pub struct CPRFrame {
 }
 
 /// Frame parity.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Parity {
     Even,
     Odd,
 }
 
 /// Source for vertical rate information.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum VerticalRateSource {
     /// Barometric pressure altitude change rate
     BarometricPressureAltitude,
@@ -128,7 +128,7 @@ pub enum MessageKind {
 }
 
 /// Kind of Mode-S message.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ModeSMessageKind {
     /// Surveillance Identity message (DF 5)
     SurveillanceIdentity {

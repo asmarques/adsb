@@ -322,7 +322,7 @@ fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
 fn parse_avr_frame(input: &str) -> IResult<&str, Vec<u8>> {
     let (input, _) = tag("*")(input)?;
     let (input, bytes) = many0(map_res(
-        take_while_m_n(2, 2, |d: char| d.is_digit(16)),
+        take_while_m_n(2, 2, |d: char| d.is_ascii_hexdigit()),
         |d| u8::from_str_radix(d, 16),
     ))(input)?;
     let (input, _) = tag(";")(input)?;
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn parse_single_avr_frame() {
         let r = "*8D4840D6202CC371C32CE0576098;";
-        let (_, m) = parse_avr_frame(&r).unwrap();
+        let (_, m) = parse_avr_frame(r).unwrap();
         assert_eq!(
             m,
             b"\x8D\x48\x40\xD6\x20\x2C\xC3\x71\xC3\x2C\xE0\x57\x60\x98"
