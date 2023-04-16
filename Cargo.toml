@@ -11,7 +11,7 @@ categories = ["encoding", "parser-implementations"]
 edition = "2018"
 
 [dependencies]
-nom = "6.1.2"
+nom = "7"
 lazy_static = "1.4.0"
 
 [dev-dependencies]
