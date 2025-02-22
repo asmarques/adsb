@@ -5,10 +5,10 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::combinator::{map, map_res, peek, verify};
 use nom::error::{make_error, ErrorKind};
-use nom::multi::{many0, many_m_n};
-use nom::sequence::tuple;
+use nom::multi::{count, many0};
 use nom::Err;
 use nom::IResult;
+use nom::Parser;
 use nom::{bits::complete::tag as tag_bits, bits::complete::take as take_bits};
 use std::f64::consts::PI;
 
@@ -24,11 +24,12 @@ fn decode_callsign(encoded: Vec<u8>) -> String {
 fn parse_aircraft_identification(
     input: (&[u8], usize),
 ) -> IResult<(&[u8], usize), ADSBMessageKind> {
-    let (input, (_, emitter_category, callsign)): (_, (u8, u8, String)) = tuple((
+    let (input, (_, emitter_category, callsign)): (_, (u8, u8, String)) = (
         verify(take_bits(5u8), |tc| *tc >= 1 && *tc <= 4),
         take_bits(3u8),
-        map(many_m_n(8, 8, take_bits(6u8)), decode_callsign),
-    ))(input)?;
+        map(count(take_bits(6u8), 8), decode_callsign),
+    )
+        .parse(input)?;
     let message = ADSBMessageKind::AircraftIdentification {
         emitter_category,
         callsign,
@@ -37,14 +38,15 @@ fn parse_aircraft_identification(
 }
 
 fn parse_altitude(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
-    let (input, (l, q, r)): (_, (u16, u16, u16)) = tuple((
+    let (input, (l, q, r)): (_, (u16, u16, u16)) = (
         take_bits(7u8),
         alt((
             map(tag_bits(0b0, 1u8), |_| 100),
             map(tag_bits(0b1, 1u8), |_| 25),
         )),
         take_bits(4u8),
-    ))(input)?;
+    )
+        .parse(input)?;
     let altitude = (l.rotate_left(4) + r)
         .checked_mul(q)
         .and_then(|r| r.checked_sub(1000));
@@ -58,7 +60,8 @@ fn parse_cpr_parity(input: (&[u8], usize)) -> IResult<(&[u8], usize), Parity> {
     alt((
         map(tag_bits(0b0, 1u8), |_| Parity::Even),
         map(tag_bits(0b1, 1u8), |_| Parity::Odd),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_coordinate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u32> {
@@ -66,15 +69,16 @@ fn parse_coordinate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u32> {
 }
 
 fn parse_airborne_position(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADSBMessageKind> {
-    let (input, _): (_, (u8, u8)) = tuple((
+    let (input, _): (_, (u8, u8)) = (
         verify(take_bits(5u8), |tc| *tc >= 9 && *tc <= 18),
         take_bits(3u8),
-    ))(input)?;
+    )
+        .parse(input)?;
 
-    let (input, (altitude, _)): (_, (u16, u8)) = tuple((parse_altitude, take_bits(1u8)))(input)?;
+    let (input, (altitude, _)): (_, (u16, u8)) = (parse_altitude, take_bits(1u8)).parse(input)?;
     let (input, cpr_parity) = parse_cpr_parity(input)?;
     let (input, (cpr_latitude, cpr_longitude)) =
-        tuple((parse_coordinate, parse_coordinate))(input)?;
+        (parse_coordinate, parse_coordinate).parse(input)?;
 
     let message = ADSBMessageKind::AirbornePosition {
         altitude,
@@ -96,14 +100,16 @@ fn parse_vertical_rate_source(
     alt((
         map(tag_bits(0b0, 1u8), |_| BarometricPressureAltitude),
         map(tag_bits(0b1, 1u8), |_| GeometricAltitude),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_sign(input: (&[u8], usize)) -> IResult<(&[u8], usize), i16> {
     alt((
         map(tag_bits(0b0, 1u8), |_| 1),
         map(tag_bits(0b1, 1u8), |_| -1),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
@@ -115,21 +121,23 @@ fn parse_vertical_rate(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
 }
 
 fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADSBMessageKind> {
-    let (input, _): (_, (u8, u8, u8)) = tuple((
+    let (input, _): (_, (u8, u8, u8)) = (
         verify(take_bits(5u8), |tc| *tc == 19),
         verify(take_bits(3u8), |st| *st == 1),
         take_bits(5u8),
-    ))(input)?;
+    )
+        .parse(input)?;
 
-    let (input, (ew_sign, ew_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
-    let (input, (ns_sign, ns_vel)): (_, (i16, u16)) = tuple((parse_sign, parse_velocity))(input)?;
+    let (input, (ew_sign, ew_vel)): (_, (i16, u16)) = (parse_sign, parse_velocity).parse(input)?;
+    let (input, (ns_sign, ns_vel)): (_, (i16, u16)) = (parse_sign, parse_velocity).parse(input)?;
     let (input, (vrate_src, vrate_sign, vrate_value, _)): (_, (VerticalRateSource, i16, u16, u16)) =
-        tuple((
+        (
             parse_vertical_rate_source,
             parse_sign,
             parse_vertical_rate,
             take_bits(10u16),
-        ))(input)?;
+        )
+            .parse(input)?;
 
     let v_ew = ((ew_vel as i16 - 1) * ew_sign) as f64;
     let v_ns = ((ns_vel as i16 - 1) * ns_sign) as f64;
@@ -153,7 +161,7 @@ fn parse_airborne_velocity(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
 
 fn parse_icao_address(input: (&[u8], usize)) -> IResult<(&[u8], usize), ICAOAddress> {
     let (input, (a, b, c)): (_, (u8, u8, u8)) =
-        tuple((take_bits(8u8), take_bits(8u8), take_bits(8u8)))(input)?;
+        (take_bits(8u8), take_bits(8u8), take_bits(8u8)).parse(input)?;
     let address = ICAOAddress(a, b, c);
     Ok((input, address))
 }
@@ -163,12 +171,13 @@ fn parse_adsb_message_kind(input: (&[u8], usize)) -> IResult<(&[u8], usize), ADS
         parse_aircraft_identification,
         parse_airborne_position,
         parse_airborne_velocity,
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageKind> {
     let start = input.0;
-    let (input, (_, capability)): (_, (u8, u8)) = tuple((
+    let (input, (_, capability)): (_, (u8, u8)) = (
         alt((
             // If the message comes from a Mode S transponder, it uses DF=17. "Non-transponder-based
             // ADS-B transmitting subsystems and TIS-B transmitting equipment" use DF=18. Note that
@@ -178,14 +187,16 @@ fn parse_adsb_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), MessageK
             tag_bits(0b10010 /* DF=18 */, 5u8),
         )),
         take_bits(3u8),
-    ))(input)?;
+    )
+        .parse(input)?;
 
-    let (input, (icao_address, type_code, kind, _crc)): (_, (_, _, _, u32)) = tuple((
+    let (input, (icao_address, type_code, kind, _crc)): (_, (_, _, _, u32)) = (
         parse_icao_address,
         peek(take_bits(5u8)),
         parse_adsb_message_kind,
         take_bits(24u8),
-    ))(input)?;
+    )
+        .parse(input)?;
 
     let original_len = start.len();
     let remaining_len = input.0.len();
@@ -269,14 +280,15 @@ fn parse_surveillance_identity(input: (&[u8], usize)) -> IResult<(&[u8], usize),
     let (_input, (_df, _flight_status, _downlink_req, _utility_msg, id_code, _parity)): (
         _,
         (u8, u8, u8, u8, u16, u32),
-    ) = tuple((
+    ) = (
         tag_bits(0b00101, 5u8),
         take_bits(3u8),
         take_bits(5u8),
         take_bits(6u8),
         take_bits(13u8),
         take_bits(24u8),
-    ))(input)?;
+    )
+        .parse(input)?;
     let squawk_code = decode_id_13_field(id_code);
     Ok((
         input,
@@ -308,10 +320,11 @@ fn parse_mode_s_message(input: (&[u8], usize)) -> IResult<(&[u8], usize), Messag
 }
 
 fn parse_message(input: &[u8]) -> IResult<&[u8], Message> {
-    let (input, (downlink_format, kind)): (_, (u8, MessageKind)) = bits(tuple((
+    let (input, (downlink_format, kind)): (_, (u8, MessageKind)) = bits((
         peek(take_bits(5u8)),
         alt((parse_mode_s_message, parse_adsb_message, parse_unknown)),
-    )))(input)?;
+    ))
+    .parse(input)?;
     let message = Message {
         downlink_format,
         kind,
@@ -324,7 +337,8 @@ fn parse_avr_frame(input: &str) -> IResult<&str, Vec<u8>> {
     let (input, bytes) = many0(map_res(
         take_while_m_n(2, 2, |d: char| d.is_ascii_hexdigit()),
         |d| u8::from_str_radix(d, 16),
-    ))(input)?;
+    ))
+    .parse(input)?;
     let (input, _) = tag(";")(input)?;
     Ok((input, bytes))
 }
