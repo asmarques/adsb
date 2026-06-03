@@ -13,6 +13,3 @@ mod types;
 
 pub use parser::*;
 pub use types::*;
-
-#[macro_use]
-extern crate lazy_static;

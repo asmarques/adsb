@@ -1,28 +1,27 @@
 use core::fmt;
 use std::error::Error;
+use std::sync::LazyLock;
 
 // CRC table generation and Mode S checksumming ported from
 // https://github.com/wiedehopf/readsb/blob/177545fbff8cc2be9d7e9b9b109c5c1046c2642b/crc.c
 
 const MODES_GENERATOR_POLY: u32 = 0xfff409;
 
-lazy_static! {
-    static ref CRC_TABLE: [u32; 256] = {
-        let mut result = [0u32; 256];
-        for i in 0..256 {
-            let mut c = i << 16;
-            for _j in 0..8 {
-                if c & 0x800000 != 0 {
-                    c = (c << 1) ^ MODES_GENERATOR_POLY;
-                } else {
-                    c <<= 1;
-                }
+static CRC_TABLE: LazyLock<[u32; 256]> = LazyLock::new(|| {
+    let mut result = [0u32; 256];
+    for i in 0..256 {
+        let mut c = i << 16;
+        for _j in 0..8 {
+            if c & 0x800000 != 0 {
+                c = (c << 1) ^ MODES_GENERATOR_POLY;
+            } else {
+                c <<= 1;
             }
-            result[i as usize] = c & 0x00ffffff;
         }
-        result
-    };
-}
+        result[i as usize] = c & 0x00ffffff;
+    }
+    result
+});
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CrcError {
